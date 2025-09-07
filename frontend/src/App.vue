@@ -132,20 +132,22 @@ const carregarCompras = async () => {
   try {
     const response = await apiService.getCompras()
     
-    if (response.success) {
+    // O backend retorna diretamente um array de compras
+    if (Array.isArray(response)) {
       compras.splice(0, compras.length) // Limpar array
-      response.data.forEach(compra => {
+      response.forEach(compra => {
         compras.push({
           id: compra.id,
-          data: new Date(compra.data_compra).toLocaleDateString('pt-BR'),
+          data: new Date(compra.created_at).toLocaleDateString('pt-BR'),
           fornecedor: compra.fornecedor,
           total: parseFloat(compra.total),
-          itens: compra.itens.map(item => ({
-            produtoId: item.produto_id,
-            quantidade: item.quantidade,
-            precoUnitario: parseFloat(item.preco_unitario),
-            subtotal: parseFloat(item.subtotal)
-          }))
+          itens: compra.produtos ? compra.produtos.map(produto => ({
+            produtoId: produto.id,
+            produtoNome: produto.nome,
+            quantidade: produto.pivot.quantidade,
+            precoUnitario: parseFloat(produto.pivot.preco_unitario),
+            subtotal: parseFloat(produto.pivot.subtotal)
+          })) : []
         })
       })
     }
@@ -200,13 +202,14 @@ const registrarCompra = async (compra) => {
     
     const response = await apiService.createCompra(compra)
     
-    if (response.success) {
+    // O backend retorna status 201 e objeto com message e compra
+    if (response.message && response.compra) {
       // Recarregar produtos para atualizar estoque e custo médio
       await carregarProdutos()
       // Recarregar compras
       await carregarCompras()
       
-      mostrarMensagem('Compra registrada com sucesso!', 'sucesso')
+      mostrarMensagem(response.message, 'sucesso')
     }
   } catch (error) {
     console.error('Erro ao registrar compra:', error)
