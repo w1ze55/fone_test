@@ -50,14 +50,20 @@ const atualizarProduto = async (produtoId, novosDados) => {
     
     const response = await apiService.updateProduto(produtoId, novosDados)
     
-    if (response.success) {
+    // O backend retorna diretamente o produto atualizado
+    if (response.id) {
+      // Atualizar produto na lista local
       const produto = produtos.find(p => p.id === produtoId)
       if (produto) {
-        produto.nome = response.data.nome
-        produto.precoVenda = parseFloat(response.data.preco_venda)
-        produto.custoMedio = parseFloat(response.data.custo_medio)
-        produto.estoque = response.data.estoque
+        produto.nome = response.nome
+        produto.precoVenda = parseFloat(response.preco_venda)
+        produto.custoMedio = parseFloat(response.custo_medio)
+        produto.estoque = response.estoque_atual
       }
+      
+      // Recarregar lista completa para garantir sincronização
+      await carregarProdutos(false)
+      
       mostrarMensagem('Produto atualizado com sucesso!', 'sucesso')
     }
   } catch (error) {
@@ -88,13 +94,18 @@ const excluirProduto = async (produto) => {
     
     const response = await apiService.deleteProduto(produto.id)
     
-    if (response.success) {
+    // O backend retorna { message: 'Produto excluído com sucesso' }
+    if (response.message) {
       // Remover produto da lista local
       const index = produtos.findIndex(p => p.id === produto.id)
       if (index !== -1) {
         produtos.splice(index, 1)
       }
-      mostrarMensagem('Produto excluído com sucesso!', 'sucesso')
+      
+      // Recarregar lista completa para garantir sincronização
+      await carregarProdutos(false)
+      
+      mostrarMensagem(response.message, 'sucesso')
     }
   } catch (error) {
     console.error('Erro ao excluir produto:', error)
@@ -105,9 +116,11 @@ const excluirProduto = async (produto) => {
 }
 
 // Funções para carregar dados da API
-const carregarProdutos = async () => {
+const carregarProdutos = async (mostrarCarregando = true) => {
   try {
-    carregando.value = true
+    if (mostrarCarregando) {
+      carregando.value = true
+    }
     const response = await apiService.getProdutos()
     
     produtos.splice(0, produtos.length) // Limpar array
@@ -124,7 +137,9 @@ const carregarProdutos = async () => {
     console.error('Erro ao carregar produtos:', error)
     mostrarMensagem(`Erro ao carregar produtos: ${error.message}`, 'erro')
   } finally {
-    carregando.value = false
+    if (mostrarCarregando) {
+      carregando.value = false
+    }
   }
 }
 
@@ -209,7 +224,7 @@ const registrarCompra = async (compra) => {
     // O backend retorna status 201 e objeto com message e compra
     if (response.message && response.compra) {
       // Recarregar produtos para atualizar estoque e custo médio
-      await carregarProdutos()
+      await carregarProdutos(false)
       // Recarregar compras
       await carregarCompras()
       
@@ -233,7 +248,7 @@ const registrarVenda = async (venda) => {
     
     if (response.message && response.venda) {
       // Recarregar produtos para atualizar estoque
-      await carregarProdutos()
+      await carregarProdutos(false)
       // Recarregar vendas
       await carregarVendas()
       
