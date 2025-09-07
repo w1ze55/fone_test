@@ -160,22 +160,26 @@ const carregarVendas = async () => {
   try {
     const response = await apiService.getVendas()
     
-    if (response.success) {
+    // O backend retorna diretamente um array de vendas
+    if (Array.isArray(response)) {
       vendas.splice(0, vendas.length) // Limpar array
-      response.data.forEach(venda => {
+      response.forEach(venda => {
         vendas.push({
           id: venda.id,
-          data: new Date(venda.data_venda).toLocaleDateString('pt-BR'),
+          data: new Date(venda.created_at).toLocaleDateString('pt-BR'),
           cliente: venda.cliente,
           total: parseFloat(venda.total),
           lucro: parseFloat(venda.lucro),
-          status: venda.status,
-          itens: venda.itens.map(item => ({
-            produtoId: item.produto_id,
-            quantidade: item.quantidade,
-            precoUnitario: parseFloat(item.preco_unitario),
-            subtotal: parseFloat(item.subtotal)
-          }))
+          cancelada: venda.cancelada,
+          itens: venda.produtos ? venda.produtos.map(produto => ({
+            produtoId: produto.id,
+            produtoNome: produto.nome,
+            quantidade: produto.pivot.quantidade,
+            precoUnitario: parseFloat(produto.pivot.preco_unitario),
+            custoUnitario: parseFloat(produto.pivot.custo_unitario),
+            subtotal: parseFloat(produto.pivot.subtotal),
+            lucroUnitario: parseFloat(produto.pivot.lucro_unitario)
+          })) : []
         })
       })
     }
@@ -227,15 +231,14 @@ const registrarVenda = async (venda) => {
     
     const response = await apiService.createVenda(venda)
     
-    if (response.success) {
+    if (response.message && response.venda) {
       // Recarregar produtos para atualizar estoque
       await carregarProdutos()
       // Recarregar vendas
       await carregarVendas()
       
-      const resumo = response.resumo
       mostrarMensagem(
-        `Venda realizada! Total: R$ ${resumo.total_venda.toFixed(2)}, Lucro: R$ ${resumo.lucro_calculado.toFixed(2)}`, 
+        `${response.message} - Total: R$ ${response.total.toFixed(2)}, Lucro: R$ ${response.lucro.toFixed(2)}`, 
         'sucesso'
       )
       return true

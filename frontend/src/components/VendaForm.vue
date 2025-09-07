@@ -221,10 +221,14 @@ const registrarVenda = () => {
     
     emit('venda-registrada', {
       cliente: form.cliente.trim(),
-      itens: form.itens.map(item => ({
-        produtoId: parseInt(item.produtoId),
-        quantidade: item.quantidade
-      }))
+      itens: form.itens.map(item => {
+        const produto = props.produtos.find(p => p.id === item.produtoId)
+        return {
+          produtoId: parseInt(item.produtoId),
+          quantidade: item.quantidade,
+          precoUnitario: produto ? produto.precoVenda : 0
+        }
+      })
     })
     
     // Limpar formulário
