@@ -461,7 +461,7 @@ const estatisticas = computed(() => {
 <style scoped>
 #app {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: rgb(233,253,238);
   position: relative;
   z-index: 1;
 }
@@ -505,7 +505,7 @@ const estatisticas = computed(() => {
 }
 
 .nav-btn.active {
-  background: #007bff;
+  background: rgb(51,154,79);
   color: white;
 }
 
@@ -532,7 +532,7 @@ const estatisticas = computed(() => {
 }
 
 .notification-popup.sucesso {
-  border-left: 4px solid #28a745;
+  border-left: 4px solid rgb(51,154,79);
 }
 
 .notification-popup.erro {
@@ -750,7 +750,7 @@ const estatisticas = computed(() => {
   width: 40px;
   height: 40px;
   border: 4px solid #f3f3f3;
-  border-top: 4px solid #007bff;
+  border-top: 4px solid rgb(51,154,79);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem auto;
