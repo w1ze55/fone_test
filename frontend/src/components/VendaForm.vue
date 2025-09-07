@@ -58,7 +58,11 @@
               :max="getMaxQuantidade(item.produtoId)"
               required
               class="form-input"
+              :class="{ 'estoque-insuficiente': item.produtoId && item.quantidade > getMaxQuantidade(item.produtoId) }"
             />
+            <small v-if="item.produtoId && item.quantidade > getMaxQuantidade(item.produtoId)" class="erro-estoque">
+              ⚠️ Estoque insuficiente! Máximo: {{ getMaxQuantidade(item.produtoId) }}
+            </small>
           </div>
           
           <div class="item-preco">
@@ -210,36 +214,69 @@ const atualizarItem = (index) => {
 }
 
 const registrarVenda = () => {
-  if (form.cliente.trim() && form.itens.every(item => item.produtoId && item.quantidade > 0)) {
-    // Verificar estoque disponível
-    for (const item of form.itens) {
-      const produto = props.produtos.find(p => p.id === item.produtoId)
-      if (!produto || produto.estoque < item.quantidade) {
-        return false // O erro será tratado no componente pai
-      }
+  if (!form.cliente.trim()) {
+    alert('Por favor, informe o nome do cliente.')
+    return false
+  }
+  
+  if (!form.itens.every(item => item.produtoId && item.quantidade > 0)) {
+    alert('Por favor, preencha todos os itens da venda.')
+    return false
+  }
+  
+  // Verificar estoque disponível
+  for (const item of form.itens) {
+    const produto = props.produtos.find(p => p.id === item.produtoId)
+    if (!produto) {
+      alert('Produto não encontrado.')
+      return false
     }
     
-    emit('venda-registrada', {
-      cliente: form.cliente.trim(),
-      itens: form.itens.map(item => {
-        const produto = props.produtos.find(p => p.id === item.produtoId)
-        return {
-          produtoId: parseInt(item.produtoId),
-          quantidade: item.quantidade,
-          precoUnitario: produto ? produto.precoVenda : 0
-        }
-      })
-    })
-    
-    // Limpar formulário
-    form.cliente = ''
-    form.itens = [{
-      produtoId: '',
-      quantidade: 1,
-      subtotal: 0,
-      lucro: 0
-    }]
+    if (produto.estoque < item.quantidade) {
+      alert(`Estoque insuficiente para ${produto.nome}!\n\nDisponível: ${produto.estoque}\nSolicitado: ${item.quantidade}`)
+      return false
+    }
   }
+  
+  // Verificar se há quantidade total válida considerando múltiplos itens do mesmo produto
+  const produtoQuantidades = {}
+  for (const item of form.itens) {
+    if (!produtoQuantidades[item.produtoId]) {
+      produtoQuantidades[item.produtoId] = 0
+    }
+    produtoQuantidades[item.produtoId] += item.quantidade
+  }
+  
+  for (const [produtoId, quantidadeTotal] of Object.entries(produtoQuantidades)) {
+    const produto = props.produtos.find(p => p.id === parseInt(produtoId))
+    if (produto && produto.estoque < quantidadeTotal) {
+      alert(`Estoque insuficiente para ${produto.nome}!\n\nVocê está tentando vender ${quantidadeTotal} unidades, mas só há ${produto.estoque} disponíveis.`)
+      return false
+    }
+  }
+  
+  emit('venda-registrada', {
+    cliente: form.cliente.trim(),
+    itens: form.itens.map(item => {
+      const produto = props.produtos.find(p => p.id === item.produtoId)
+      return {
+        produtoId: parseInt(item.produtoId),
+        quantidade: item.quantidade,
+        precoUnitario: produto ? produto.precoVenda : 0
+      }
+    })
+  })
+  
+  // Limpar formulário
+  form.cliente = ''
+  form.itens = [{
+    produtoId: '',
+    quantidade: 1,
+    subtotal: 0,
+    lucro: 0
+  }]
+  
+  return true
 }
 </script>
 
@@ -429,6 +466,19 @@ const registrarVenda = () => {
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.form-input.estoque-insuficiente {
+  border-color: #dc3545;
+  background-color: #f8d7da;
+}
+
+.erro-estoque {
+  color: #dc3545;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+  display: block;
 }
 
 @media (max-width: 1200px) {

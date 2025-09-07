@@ -37,15 +37,35 @@ class VendaController extends Controller
         try {
             DB::beginTransaction();
 
-            // Verificar estoque antes de processar
+            // Agrupar produtos por ID para verificar quantidade total solicitada
+            $produtoQuantidades = [];
             foreach ($request->produtos as $produtoData) {
-                $produto = Produto::find($produtoData['id']);
-                if ($produto->estoque_atual < $produtoData['quantidade']) {
+                $produtoId = $produtoData['id'];
+                if (!isset($produtoQuantidades[$produtoId])) {
+                    $produtoQuantidades[$produtoId] = 0;
+                }
+                $produtoQuantidades[$produtoId] += $produtoData['quantidade'];
+            }
+
+            // Verificar estoque antes de processar (com lock para evitar concorrência)
+            foreach ($produtoQuantidades as $produtoId => $quantidadeTotal) {
+                $produto = Produto::lockForUpdate()->find($produtoId);
+                if (!$produto) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Produto não encontrado',
+                        'produto_id' => $produtoId
+                    ], 404);
+                }
+                
+                if ($produto->estoque_atual < $quantidadeTotal) {
+                    DB::rollBack();
                     return response()->json([
                         'message' => 'Estoque insuficiente',
                         'produto' => $produto->nome,
                         'estoque_disponivel' => $produto->estoque_atual,
-                        'quantidade_solicitada' => $produtoData['quantidade']
+                        'quantidade_solicitada' => $quantidadeTotal,
+                        'detalhes' => "Você está tentando vender {$quantidadeTotal} unidades, mas só há {$produto->estoque_atual} disponíveis."
                     ], 400);
                 }
             }
