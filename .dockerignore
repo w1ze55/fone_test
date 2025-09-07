@@ -1,0 +1,40 @@
+# Arquivos que não devem ser copiados para containers Docker
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+
+# Environment files (serão copiados especificamente quando necessário)
+.env*
+
+# Docker files (evitar recursão)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+
