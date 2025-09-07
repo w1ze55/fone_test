@@ -236,7 +236,7 @@ const registrarCompra = () => {
 
 .form-input:focus, .form-select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: rgb(51,154,79);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
 }
 
@@ -324,12 +324,12 @@ const registrarCompra = () => {
 }
 
 .btn-primary {
-  background: #007bff;
+  background: rgb(51,154,79);
   color: white;
 }
 
 .btn-primary:hover {
-  background: #0056b3;
+  background: rgb(36, 110, 56);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
@@ -344,7 +344,7 @@ const registrarCompra = () => {
 }
 
 .btn-danger {
-  background: #dc3545;
+  background: #b90013;
   color: white;
 }
 
