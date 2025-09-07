@@ -12,9 +12,10 @@ const telaAtiva = ref('produtos')
 const produtos = reactive([])
 const compras = reactive([])
 const vendas = reactive([])
-const mensagem = reactive({ texto: '', tipo: '' })
+const notificacoes = reactive([])
 const produtoEditando = ref(null)
 const carregando = ref(false)
+let notificacaoId = 0
 
 // Funções para gerenciar produtos
 const adicionarProduto = async (produto) => {
@@ -34,10 +35,10 @@ const adicionarProduto = async (produto) => {
     }
     
     produtos.push(novoProduto)
-    mostrarMensagem('Produto cadastrado com sucesso!', 'sucesso')
+    mostrarNotificacao('Produto cadastrado com sucesso!', 'sucesso')
   } catch (error) {
     console.error('Erro ao cadastrar produto:', error)
-    mostrarMensagem(`Erro ao cadastrar produto: ${error.message}`, 'erro')
+    mostrarNotificacao(`Erro ao cadastrar produto: ${error.message}`, 'erro')
   } finally {
     carregando.value = false
   }
@@ -64,11 +65,11 @@ const atualizarProduto = async (produtoId, novosDados) => {
       // Recarregar lista completa para garantir sincronização
       await carregarProdutos(false)
       
-      mostrarMensagem('Produto atualizado com sucesso!', 'sucesso')
+      mostrarNotificacao('Produto atualizado com sucesso!', 'sucesso')
     }
   } catch (error) {
     console.error('Erro ao atualizar produto:', error)
-    mostrarMensagem(`Erro ao atualizar produto: ${error.message}`, 'erro')
+    mostrarNotificacao(`Erro ao atualizar produto: ${error.message}`, 'erro')
   } finally {
     carregando.value = false
   }
@@ -105,11 +106,11 @@ const excluirProduto = async (produto) => {
       // Recarregar lista completa para garantir sincronização
       await carregarProdutos(false)
       
-      mostrarMensagem(response.message, 'sucesso')
+      mostrarNotificacao(response.message, 'sucesso')
     }
   } catch (error) {
     console.error('Erro ao excluir produto:', error)
-    mostrarMensagem(`Erro ao excluir produto: ${error.message}`, 'erro')
+    mostrarNotificacao(`Erro ao excluir produto: ${error.message}`, 'erro')
   } finally {
     carregando.value = false
   }
@@ -135,7 +136,7 @@ const carregarProdutos = async (mostrarCarregando = true) => {
     })
   } catch (error) {
     console.error('Erro ao carregar produtos:', error)
-    mostrarMensagem(`Erro ao carregar produtos: ${error.message}`, 'erro')
+    mostrarNotificacao(`Erro ao carregar produtos: ${error.message}`, 'erro')
   } finally {
     if (mostrarCarregando) {
       carregando.value = false
@@ -228,11 +229,11 @@ const registrarCompra = async (compra) => {
       // Recarregar compras
       await carregarCompras()
       
-      mostrarMensagem(response.message, 'sucesso')
+      mostrarNotificacao(response.message, 'sucesso')
     }
   } catch (error) {
     console.error('Erro ao registrar compra:', error)
-    mostrarMensagem(`Erro ao registrar compra: ${error.message}`, 'erro')
+    mostrarNotificacao(`Erro ao registrar compra: ${error.message}`, 'erro')
   } finally {
     carregando.value = false
   }
@@ -252,7 +253,7 @@ const registrarVenda = async (venda) => {
       // Recarregar vendas
       await carregarVendas()
       
-      mostrarMensagem(
+      mostrarNotificacao(
         `${response.message} - Total: R$ ${response.total.toFixed(2)}, Lucro: R$ ${response.lucro.toFixed(2)}`, 
         'sucesso'
       )
@@ -260,28 +261,48 @@ const registrarVenda = async (venda) => {
     }
   } catch (error) {
     console.error('Erro ao registrar venda:', error)
-    mostrarMensagem(`Erro ao registrar venda: ${error.message}`, 'erro')
+    
+    // Tratar especificamente erros de estoque
+    if (error.message.includes('Estoque insuficiente')) {
+      mostrarNotificacao(`❌ ${error.message}`, 'erro')
+    } else {
+      mostrarNotificacao(`Erro ao registrar venda: ${error.message}`, 'erro')
+    }
     return false
   } finally {
     carregando.value = false
   }
 }
 
-// Função para mostrar mensagens
-const mostrarMensagem = (texto, tipo) => {
-  mensagem.texto = texto
-  mensagem.tipo = tipo
+// Função para mostrar notificações
+const mostrarNotificacao = (texto, tipo) => {
+  const id = ++notificacaoId
+  const notificacao = {
+    id,
+    texto,
+    tipo
+  }
+  
+  notificacoes.push(notificacao)
+  
+  // Auto-remover após 5 segundos
   setTimeout(() => {
-    mensagem.texto = ''
-    mensagem.tipo = ''
-  }, 3000)
+    removerNotificacao(id)
+  }, 5000)
+}
+
+const removerNotificacao = (id) => {
+  const index = notificacoes.findIndex(n => n.id === id)
+  if (index !== -1) {
+    notificacoes.splice(index, 1)
+  }
 }
 
 // Computed para estatísticas
 const estatisticas = computed(() => {
-  const totalVendas = vendas.reduce((sum, venda) => sum + venda.total, 0)
-  const totalLucro = vendas.reduce((sum, venda) => sum + venda.lucro, 0)
+  const totalVendas = vendas.filter(venda => !venda.cancelada).reduce((sum, venda) => sum + venda.total, 0)
   const totalCompras = compras.reduce((sum, compra) => sum + compra.total, 0)
+  const totalLucro = totalVendas - totalCompras // Lucro real = Vendas - Compras
   
   return {
     totalVendas,
@@ -316,7 +337,7 @@ const estatisticas = computed(() => {
           :class="{ active: telaAtiva === 'vendas' }"
           class="nav-btn"
         >
-          💰 Vendas
+          💰 Pedido de Venda
         </button>
         <button 
           @click="telaAtiva = 'historico'" 
@@ -328,9 +349,36 @@ const estatisticas = computed(() => {
       </nav>
     </header>
 
-    <!-- Mensagens de feedback -->
-    <div v-if="mensagem.texto" :class="['mensagem', mensagem.tipo]">
-      {{ mensagem.texto }}
+    <!-- Notificações Popup -->
+    <div class="notifications-container">
+      <transition-group name="notification" tag="div">
+        <div 
+          v-for="notificacao in notificacoes" 
+          :key="notificacao.id"
+          :class="['notification-popup', notificacao.tipo]"
+        >
+          <div class="notification-content">
+            <div class="notification-icon">
+              {{ notificacao.tipo === 'sucesso' ? '✅' : notificacao.tipo === 'erro' ? '❌' : 'ℹ️' }}
+            </div>
+            <div class="notification-text">
+              {{ notificacao.texto }}
+            </div>
+            <button 
+              @click="removerNotificacao(notificacao.id)" 
+              class="notification-close"
+            >
+              ×
+            </button>
+          </div>
+          <div class="notification-progress">
+            <div 
+              class="progress-bar" 
+              :style="{ animationDuration: '5s' }"
+            ></div>
+          </div>
+        </div>
+      </transition-group>
     </div>
 
     <!-- Indicador de carregamento -->
@@ -352,8 +400,10 @@ const estatisticas = computed(() => {
         <p>R$ {{ estatisticas.totalVendas.toFixed(2) }}</p>
       </div>
       <div class="stat-card">
-        <h3>Lucro Total</h3>
-        <p>R$ {{ estatisticas.totalLucro.toFixed(2) }}</p>
+        <h3>{{ estatisticas.totalLucro >= 0 ? 'Lucro Total' : 'Prejuízo Total' }}</h3>
+        <p :style="{ color: estatisticas.totalLucro >= 0 ? '#28a745' : '#dc3545' }">
+          R$ {{ Math.abs(estatisticas.totalLucro).toFixed(2) }}
+        </p>
       </div>
       <div class="stat-card">
         <h3>Total Compras</h3>
@@ -459,24 +509,154 @@ const estatisticas = computed(() => {
   color: white;
 }
 
-.mensagem {
-  margin: 1rem 2rem;
+/* Notificações Popup */
+.notifications-container {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 400px;
+}
+
+.notification-popup {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  min-width: 320px;
+  position: relative;
+}
+
+.notification-popup.sucesso {
+  border-left: 4px solid #28a745;
+}
+
+.notification-popup.erro {
+  border-left: 4px solid #dc3545;
+}
+
+.notification-popup.info {
+  border-left: 4px solid #17a2b8;
+}
+
+.notification-content {
+  display: flex;
+  align-items: flex-start;
   padding: 1rem;
-  border-radius: 8px;
-  text-align: center;
-  font-weight: 500;
+  gap: 0.75rem;
 }
 
-.mensagem.sucesso {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+.notification-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
 }
 
-.mensagem.erro {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+.notification-text {
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #333;
+  word-wrap: break-word;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.notification-progress {
+  height: 3px;
+  background: #f0f0f0;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #28a745, #20c997);
+  width: 100%;
+  animation: progress-countdown linear forwards;
+  transform-origin: left;
+}
+
+.notification-popup.erro .progress-bar {
+  background: linear-gradient(90deg, #dc3545, #e74c3c);
+}
+
+.notification-popup.info .progress-bar {
+  background: linear-gradient(90deg, #17a2b8, #20c997);
+}
+
+@keyframes progress-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Animações de transição */
+.notification-enter-active {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.notification-leave-active {
+  transition: all 0.3s cubic-bezier(0.55, 0, 0.1, 1);
+}
+
+.notification-enter-from {
+  opacity: 0;
+  transform: translateX(100%) scale(0.8);
+}
+
+.notification-leave-to {
+  opacity: 0;
+  transform: translateX(100%) scale(0.8);
+}
+
+.notification-move {
+  transition: transform 0.3s ease;
+}
+
+/* Responsividade para notificações */
+@media (max-width: 768px) {
+  .notifications-container {
+    top: 1rem;
+    right: 1rem;
+    left: 1rem;
+    max-width: none;
+  }
+  
+  .notification-popup {
+    min-width: auto;
+  }
+  
+  .notification-text {
+    font-size: 0.85rem;
+  }
 }
 
 .estatisticas {

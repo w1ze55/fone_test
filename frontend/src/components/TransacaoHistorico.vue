@@ -33,7 +33,7 @@
         v-for="transacao in transacoesFiltradas" 
         :key="`${transacao.tipo}-${transacao.id}`" 
         class="transacao-card"
-        :class="transacao.tipo"
+        :class="[transacao.tipo, { 'cancelada': transacao.cancelada }]"
       >
         <div class="transacao-header">
           <div class="transacao-info">
@@ -54,7 +54,14 @@
           
           <div v-if="transacao.lucro !== undefined" class="detalhe-item">
             <span class="label">Lucro:</span>
-            <span class="valor lucro">R$ {{ transacao.lucro.toFixed(2) }}</span>
+            <span class="valor" :class="{ 'lucro': transacao.lucro >= 0, 'prejuizo': transacao.lucro < 0 }">
+              R$ {{ transacao.lucro.toFixed(2) }}
+            </span>
+          </div>
+          
+          <div v-if="transacao.cancelada" class="detalhe-item">
+            <span class="label">Status:</span>
+            <span class="valor cancelada">❌ CANCELADA</span>
           </div>
         </div>
         
@@ -71,8 +78,24 @@
                 <span class="item-quantidade">{{ item.quantidade }}x</span>
               </div>
               <div class="item-valores">
-                <span class="preco-unitario">R$ {{ item.precoUnitario.toFixed(2) }}</span>
-                <span class="subtotal">R$ {{ item.subtotal.toFixed(2) }}</span>
+                <div class="valor-linha">
+                  <span class="preco-label">{{ transacao.tipo === 'compra' ? 'Preço:' : 'Venda:' }}</span>
+                  <span class="preco-unitario">R$ {{ item.precoUnitario.toFixed(2) }}</span>
+                </div>
+                <div v-if="transacao.tipo === 'venda' && item.custoUnitario !== undefined" class="valor-linha">
+                  <span class="custo-label">Custo:</span>
+                  <span class="custo-unitario">R$ {{ item.custoUnitario.toFixed(2) }}</span>
+                </div>
+                <div v-if="transacao.tipo === 'venda' && item.lucroUnitario !== undefined" class="valor-linha">
+                  <span class="lucro-label">Lucro:</span>
+                  <span class="lucro-item" :class="{ 'lucro': item.lucroUnitario >= 0, 'prejuizo': item.lucroUnitario < 0 }">
+                    R$ {{ item.lucroUnitario.toFixed(2) }}
+                  </span>
+                </div>
+                <div class="subtotal-linha">
+                  <span class="subtotal-label">Subtotal:</span>
+                  <span class="subtotal">R$ {{ item.subtotal.toFixed(2) }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -84,20 +107,24 @@
       <div class="resumo-card">
         <h4>Resumo Geral</h4>
         <div class="resumo-item">
-          <span>Total de Compras:</span>
-          <span>R$ {{ totalCompras.toFixed(2) }}</span>
+          <span>💸 Total Investido (Compras):</span>
+          <span class="gasto">R$ {{ totalCompras.toFixed(2) }}</span>
         </div>
         <div class="resumo-item">
-          <span>Total de Vendas:</span>
-          <span>R$ {{ totalVendas.toFixed(2) }}</span>
+          <span>💰 Total Faturado (Vendas):</span>
+          <span class="receita">R$ {{ totalVendas.toFixed(2) }}</span>
         </div>
-        <div class="resumo-item">
-          <span>Lucro Total:</span>
-          <span class="lucro">R$ {{ lucroTotal.toFixed(2) }}</span>
+        <div class="resumo-item resultado">
+          <span>{{ lucroTotal >= 0 ? '📈 Lucro Líquido:' : '📉 Prejuízo:' }}</span>
+          <span :class="{ 'lucro': lucroTotal >= 0, 'prejuizo': lucroTotal < 0 }">
+            R$ {{ Math.abs(lucroTotal).toFixed(2) }}{{ lucroTotal < 0 ? ' (prejuízo)' : '' }}
+          </span>
         </div>
         <div class="resumo-item">
           <span>Margem de Lucro:</span>
-          <span class="lucro">{{ margemLucro.toFixed(1) }}%</span>
+          <span :class="{ 'lucro': margemLucro >= 0, 'prejuizo': margemLucro < 0 }">
+            {{ margemLucro.toFixed(1) }}%
+          </span>
         </div>
       </div>
     </div>
@@ -162,11 +189,14 @@ const totalCompras = computed(() => {
 })
 
 const totalVendas = computed(() => {
-  return props.vendas.reduce((sum, venda) => sum + venda.total, 0)
+  return props.vendas
+    .filter(venda => !venda.cancelada)
+    .reduce((sum, venda) => sum + venda.total, 0)
 })
 
 const lucroTotal = computed(() => {
-  return props.vendas.reduce((sum, venda) => sum + (venda.lucro || 0), 0)
+  // Lucro real = Total de Vendas - Total de Compras
+  return totalVendas.value - totalCompras.value
 })
 
 const margemLucro = computed(() => {
@@ -272,6 +302,12 @@ const getNomeProduto = (produtoId) => {
   border-left: 4px solid #28a745;
 }
 
+.transacao-card.venda.cancelada {
+  border-left: 4px solid #dc3545;
+  opacity: 0.7;
+  background: #f8f9fa;
+}
+
 .transacao-header {
   display: flex;
   justify-content: space-between;
@@ -332,6 +368,16 @@ const getNomeProduto = (produtoId) => {
   color: #28a745;
 }
 
+.detalhe-item .valor.prejuizo {
+  color: #dc3545;
+}
+
+.detalhe-item .valor.cancelada {
+  color: #dc3545;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
 .itens-section h5 {
   margin: 0 0 0.5rem 0;
   color: #495057;
@@ -375,13 +421,43 @@ const getNomeProduto = (produtoId) => {
 
 .item-valores {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-end;
+  min-width: 120px;
 }
 
-.preco-unitario {
+.valor-linha, .subtotal-linha {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.subtotal-linha {
+  padding-top: 0.25rem;
+  border-top: 1px solid #dee2e6;
+  font-weight: 600;
+}
+
+.preco-label, .custo-label, .lucro-label, .subtotal-label {
   color: #6c757d;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+}
+
+.preco-unitario, .custo-unitario {
+  color: #333;
+  font-weight: 500;
+}
+
+.lucro-item.lucro {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.lucro-item.prejuizo {
+  color: #dc3545;
+  font-weight: 600;
 }
 
 .subtotal {
@@ -420,6 +496,29 @@ const getNomeProduto = (produtoId) => {
 .resumo-item .lucro {
   color: #28a745;
   font-weight: bold;
+}
+
+.resumo-item .prejuizo {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.resumo-item .gasto {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.resumo-item .receita {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.resumo-item.resultado {
+  background: #f8f9fa;
+  padding: 0.75rem;
+  margin: 0.5rem -0.5rem;
+  border-radius: 6px;
+  border: 2px solid #dee2e6;
 }
 
 @media (max-width: 768px) {
