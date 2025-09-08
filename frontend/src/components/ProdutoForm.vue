@@ -1,3 +1,76 @@
+<script setup>
+import { reactive, computed, watch } from 'vue'
+
+const props = defineProps({
+  produtoEditando: {
+    type: Object,
+    default: null
+  }
+})
+
+const emit = defineEmits(['produto-adicionado', 'produto-atualizado', 'cancelar-edicao'])
+
+const form = reactive({
+  nome: '',
+  precoVenda: 0
+})
+
+const limparFormulario = () => {
+  form.nome = ''
+  form.precoVenda = 0
+}
+
+const isEditando = computed(() => props.produtoEditando !== null)
+
+const handleSubmit = (event) => {
+  if (isEditando.value) {
+    salvarEdicao()
+  } else {
+    adicionarProduto()
+  }
+}
+
+watch(() => props.produtoEditando, (novoProduto) => {
+  if (novoProduto) {
+    form.nome = novoProduto.nome
+    form.precoVenda = novoProduto.precoVenda
+  } else {
+    limparFormulario()
+  }
+}, { immediate: true })
+
+const adicionarProduto = () => {
+  if (!form.nome.trim()) {
+    return
+  }
+  
+  if (!form.precoVenda || form.precoVenda <= 0) {
+    return
+  }
+  
+  emit('produto-adicionado', {
+    nome: form.nome.trim(),
+    precoVenda: form.precoVenda
+  })
+  
+  limparFormulario()
+}
+
+const salvarEdicao = () => {
+  if (form.nome.trim() && form.precoVenda > 0) {
+    emit('produto-atualizado', {
+      nome: form.nome.trim(),
+      precoVenda: form.precoVenda
+    })
+  }
+}
+
+const cancelarEdicao = () => {
+  emit('cancelar-edicao')
+}
+
+</script>
+
 <template>
   <div class="produto-form">
     <h3>{{ isEditando ? '✏️ Editar Produto' : '📝 Cadastrar Produto' }}</h3>
@@ -45,80 +118,6 @@
     </form>
   </div>
 </template>
-
-<script setup>
-import { reactive, computed, watch } from 'vue'
-
-const props = defineProps({
-  produtoEditando: {
-    type: Object,
-    default: null
-  }
-})
-
-const emit = defineEmits(['produto-adicionado', 'produto-atualizado', 'cancelar-edicao'])
-
-const form = reactive({
-  nome: '',
-  precoVenda: 0
-})
-
-const limparFormulario = () => {
-  form.nome = ''
-  form.precoVenda = 0
-}
-
-const isEditando = computed(() => props.produtoEditando !== null)
-
-const handleSubmit = (event) => {
-  if (isEditando.value) {
-    salvarEdicao()
-  } else {
-    adicionarProduto()
-  }
-}
-
-// Observar mudanças no produto sendo editado
-watch(() => props.produtoEditando, (novoProduto) => {
-  if (novoProduto) {
-    form.nome = novoProduto.nome
-    form.precoVenda = novoProduto.precoVenda
-  } else {
-    limparFormulario()
-  }
-}, { immediate: true })
-
-const adicionarProduto = () => {
-  if (!form.nome.trim()) {
-    return
-  }
-  
-  if (!form.precoVenda || form.precoVenda <= 0) {
-    return
-  }
-  
-  emit('produto-adicionado', {
-    nome: form.nome.trim(),
-    precoVenda: form.precoVenda
-  })
-  
-  limparFormulario()
-}
-
-const salvarEdicao = () => {
-  if (form.nome.trim() && form.precoVenda > 0) {
-    emit('produto-atualizado', {
-      nome: form.nome.trim(),
-      precoVenda: form.precoVenda
-    })
-  }
-}
-
-const cancelarEdicao = () => {
-  emit('cancelar-edicao')
-}
-
-</script>
 
 <style scoped>
 .produto-form {

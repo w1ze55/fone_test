@@ -1,3 +1,27 @@
+<script setup>
+
+const props = defineProps({
+  produtos: {
+    type: Array,
+    default: () => []
+  }
+})
+
+const emit = defineEmits(['editar-produto', 'excluir-produto'])
+
+const editarProduto = (produto) => {
+  emit('editar-produto', produto)
+}
+
+const confirmarExclusao = (produto) => {
+  const confirmacao = confirm(`Tem certeza que deseja excluir o produto "${produto.nome}"?\n\nEsta ação não pode ser desfeita.`)
+  
+  if (confirmacao) {
+    emit('excluir-produto', produto)
+  }
+}
+</script>
+
 <template>
   <div class="produto-lista">
     <h3>📋 Lista de Produtos</h3>
@@ -60,30 +84,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-
-const props = defineProps({
-  produtos: {
-    type: Array,
-    default: () => []
-  }
-})
-
-const emit = defineEmits(['editar-produto', 'excluir-produto'])
-
-const editarProduto = (produto) => {
-  emit('editar-produto', produto)
-}
-
-const confirmarExclusao = (produto) => {
-  const confirmacao = confirm(`Tem certeza que deseja excluir o produto "${produto.nome}"?\n\nEsta ação não pode ser desfeita.`)
-  
-  if (confirmacao) {
-    emit('excluir-produto', produto)
-  }
-}
-</script>
 
 <style scoped>
 .produto-lista {

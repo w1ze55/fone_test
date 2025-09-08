@@ -1,3 +1,77 @@
+<script setup>
+import { ref, computed } from 'vue'
+
+const props = defineProps({
+  compras: {
+    type: Array,
+    default: () => []
+  },
+  vendas: {
+    type: Array,
+    default: () => []
+  },
+  produtos: {
+    type: Array,
+    default: () => []
+  }
+})
+
+const filtroTipo = ref('todos')
+const filtroProduto = ref('')
+
+const transacoesFiltradas = computed(() => {
+  let transacoes = []
+  
+  if (filtroTipo.value === 'todos' || filtroTipo.value === 'compras') {
+    transacoes.push(...props.compras.map(compra => ({
+      ...compra,
+      tipo: 'compra',
+      clienteFornecedor: compra.fornecedor || 'N/A'
+    })))
+  }
+  
+  if (filtroTipo.value === 'todos' || filtroTipo.value === 'vendas') {
+    transacoes.push(...props.vendas.map(venda => ({
+      ...venda,
+      tipo: 'venda',
+      clienteFornecedor: venda.cliente || 'N/A'
+    })))
+  }
+  
+  if (filtroProduto.value) {
+    transacoes = transacoes.filter(transacao => 
+      transacao.itens.some(item => item.produtoId === parseInt(filtroProduto.value))
+    )
+  }
+  
+  return transacoes.sort((a, b) => new Date(b.data) - new Date(a.data))
+})
+
+const totalCompras = computed(() => {
+  return props.compras.reduce((sum, compra) => sum + compra.total, 0)
+})
+
+const totalVendas = computed(() => {
+  return props.vendas
+    .filter(venda => !venda.cancelada)
+    .reduce((sum, venda) => sum + venda.total, 0)
+})
+
+const lucroTotal = computed(() => {
+  return totalVendas.value - totalCompras.value
+})
+
+const margemLucro = computed(() => {
+  if (totalVendas.value === 0) return 0
+  return (lucroTotal.value / totalVendas.value) * 100
+})
+
+const getNomeProduto = (produtoId) => {
+  const produto = props.produtos.find(p => p.id === produtoId)
+  return produto ? produto.nome : 'Produto não encontrado'
+}
+</script>
+
 <template>
   <div class="transacao-historico">
     <h3>📈 Histórico de Transações</h3>
@@ -130,85 +204,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, computed } from 'vue'
-
-const props = defineProps({
-  compras: {
-    type: Array,
-    default: () => []
-  },
-  vendas: {
-    type: Array,
-    default: () => []
-  },
-  produtos: {
-    type: Array,
-    default: () => []
-  }
-})
-
-const filtroTipo = ref('todos')
-const filtroProduto = ref('')
-
-const transacoesFiltradas = computed(() => {
-  let transacoes = []
-  
-  // Adicionar compras
-  if (filtroTipo.value === 'todos' || filtroTipo.value === 'compras') {
-    transacoes.push(...props.compras.map(compra => ({
-      ...compra,
-      tipo: 'compra',
-      clienteFornecedor: compra.fornecedor || 'N/A'
-    })))
-  }
-  
-  // Adicionar vendas
-  if (filtroTipo.value === 'todos' || filtroTipo.value === 'vendas') {
-    transacoes.push(...props.vendas.map(venda => ({
-      ...venda,
-      tipo: 'venda',
-      clienteFornecedor: venda.cliente || 'N/A'
-    })))
-  }
-  
-  // Filtrar por produto se selecionado
-  if (filtroProduto.value) {
-    transacoes = transacoes.filter(transacao => 
-      transacao.itens.some(item => item.produtoId === parseInt(filtroProduto.value))
-    )
-  }
-  
-  // Ordenar por data (mais recente primeiro)
-  return transacoes.sort((a, b) => new Date(b.data) - new Date(a.data))
-})
-
-const totalCompras = computed(() => {
-  return props.compras.reduce((sum, compra) => sum + compra.total, 0)
-})
-
-const totalVendas = computed(() => {
-  return props.vendas
-    .filter(venda => !venda.cancelada)
-    .reduce((sum, venda) => sum + venda.total, 0)
-})
-
-const lucroTotal = computed(() => {
-  // Lucro real = Total de Vendas - Total de Compras
-  return totalVendas.value - totalCompras.value
-})
-
-const margemLucro = computed(() => {
-  if (totalVendas.value === 0) return 0
-  return (lucroTotal.value / totalVendas.value) * 100
-})
-
-const getNomeProduto = (produtoId) => {
-  const produto = props.produtos.find(p => p.id === produtoId)
-  return produto ? produto.nome : 'Produto não encontrado'
-}
-</script>
 
 <style scoped>
 .transacao-historico {

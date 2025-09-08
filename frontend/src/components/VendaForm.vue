@@ -82,7 +82,6 @@ const registrarVenda = () => {
     return false
   }
   
-  // Verificar estoque disponível
   for (const item of form.itens) {
     const produto = props.produtos.find(p => p.id === item.produtoId)
     if (!produto) {
@@ -96,7 +95,6 @@ const registrarVenda = () => {
     }
   }
   
-  // Verificar se há quantidade total válida considerando múltiplos itens do mesmo produto
   const produtoQuantidades = {}
   for (const item of form.itens) {
     if (!produtoQuantidades[item.produtoId]) {
@@ -125,7 +123,6 @@ const registrarVenda = () => {
     })
   })
   
-  // Limpar formulário
   form.cliente = ''
   form.itens = [{
     produtoId: '',

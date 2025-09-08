@@ -9,11 +9,10 @@ import Login from './components/Login.vue'
 import Register from './components/Register.vue'
 import apiService from './services/api.js'
 
-// Estado global da aplicação
 const isAuthenticated = ref(false)
 const currentUser = ref(null)
 const showRegister = ref(false)
-const telaAtiva = ref('vendas') // Usuário comum só vê vendas por padrão
+const telaAtiva = ref('vendas')
 const produtos = reactive([])
 const compras = reactive([])
 const vendas = reactive([])
@@ -22,7 +21,6 @@ const produtoEditando = ref(null)
 const carregando = ref(false)
 let notificacaoId = 0
 
-// Funções de autenticação
 const checkAuthStatus = () => {
   const token = apiService.getToken()
   const user = apiService.getCurrentUser()
@@ -31,7 +29,6 @@ const checkAuthStatus = () => {
     isAuthenticated.value = true
     currentUser.value = user
     
-    // Definir tela inicial baseada no role
     if (user.role === 'admin') {
       telaAtiva.value = 'produtos'
     } else {
@@ -47,7 +44,6 @@ const handleLogin = (user) => {
   currentUser.value = user
   isAuthenticated.value = true
   
-  // Definir tela inicial baseada no role
   if (user.role === 'admin') {
     telaAtiva.value = 'produtos'
   } else {
@@ -56,7 +52,6 @@ const handleLogin = (user) => {
   
   mostrarNotificacao(`Bem-vindo(a), ${user.name}!`, 'sucesso')
   
-  // Carregar dados após login
   loadAppData()
 }
 
@@ -72,7 +67,6 @@ const handleLogout = async () => {
     currentUser.value = null
     telaAtiva.value = 'vendas'
     
-    // Limpar dados locais
     produtos.splice(0, produtos.length)
     compras.splice(0, compras.length)
     vendas.splice(0, vendas.length)
@@ -88,32 +82,26 @@ const toggleAuthMode = () => {
   showRegister.value = !showRegister.value
 }
 
-// Verificar se usuário pode acessar a tela
 const canAccessScreen = (screen) => {
   if (!currentUser.value) return false
   
   if (currentUser.value.role === 'admin') {
-    return true // Admin pode acessar tudo
+    return true
   }
   
-  // Usuário comum só pode acessar vendas
   return screen === 'vendas'
 }
 
-// Carregar dados da aplicação
 const loadAppData = async () => {
   if (!isAuthenticated.value) return
   
   try {
-    // Sempre carregar produtos (usuários precisam ver para fazer vendas)
     await carregarProdutos()
     
-    // Carregar compras apenas para admin
     if (canAccessScreen('compras')) {
       await carregarCompras()
     }
     
-    // Carregar vendas para todos os usuários autenticados
     if (canAccessScreen('vendas')) {
       await carregarVendas()
     }
@@ -123,15 +111,13 @@ const loadAppData = async () => {
   }
 }
 
-// Funções para gerenciar produtos
 const adicionarProduto = async (produto) => {
   try {
     carregando.value = true
-    console.log('🎯 App.vue: Recebido produto para adicionar:', produto)
+    console.log('App.vue: Recebido produto para adicionar:', produto)
     
     const response = await apiService.createProduto(produto)
     
-    // Adicionar produto à lista local
     const novoProduto = {
       id: response.id,
       nome: response.nome,
@@ -153,13 +139,11 @@ const adicionarProduto = async (produto) => {
 const atualizarProduto = async (produtoId, novosDados) => {
   try {
     carregando.value = true
-    console.log('🔄 Atualizando produto:', produtoId, novosDados)
+    console.log('Atualizando produto:', produtoId, novosDados)
     
     const response = await apiService.updateProduto(produtoId, novosDados)
     
-    // O backend retorna diretamente o produto atualizado
     if (response.id) {
-      // Atualizar produto na lista local
       const produto = produtos.find(p => p.id === produtoId)
       if (produto) {
         produto.nome = response.nome
@@ -168,7 +152,6 @@ const atualizarProduto = async (produtoId, novosDados) => {
         produto.estoque = response.estoque_atual
       }
       
-      // Recarregar lista completa para garantir sincronização
       await carregarProdutos(false)
       
       mostrarNotificacao('Produto atualizado com sucesso!', 'sucesso')
@@ -201,15 +184,12 @@ const excluirProduto = async (produto) => {
     
     const response = await apiService.deleteProduto(produto.id)
     
-    // O backend retorna { message: 'Produto excluído com sucesso' }
     if (response.message) {
-      // Remover produto da lista local
       const index = produtos.findIndex(p => p.id === produto.id)
       if (index !== -1) {
         produtos.splice(index, 1)
       }
       
-      // Recarregar lista completa para garantir sincronização
       await carregarProdutos(false)
       
       mostrarNotificacao(response.message, 'sucesso')
@@ -222,17 +202,16 @@ const excluirProduto = async (produto) => {
   }
 }
 
-// Funções para carregar dados da API
 const carregarProdutos = async (mostrarCarregando = true) => {
   try {
     if (mostrarCarregando) {
       carregando.value = true
     }
-    console.log('🔍 Carregando produtos...')
+    console.log('Carregando produtos...')
     const response = await apiService.getProdutos()
-    console.log('📦 Produtos recebidos:', response)
+    console.log('Produtos recebidos:', response)
     
-    produtos.splice(0, produtos.length) // Limpar array
+    produtos.splice(0, produtos.length)
     response.forEach(produto => {
       produtos.push({
         id: produto.id,
@@ -242,9 +221,9 @@ const carregarProdutos = async (mostrarCarregando = true) => {
         estoque: produto.estoque_atual
       })
     })
-    console.log('✅ Produtos carregados no estado:', produtos.length)
+    console.log('Produtos carregados no estado:', produtos.length)
   } catch (error) {
-    console.error('❌ Erro ao carregar produtos:', error)
+    console.error('Erro ao carregar produtos:', error)
     mostrarNotificacao(`Erro ao carregar produtos: ${error.message}`, 'erro')
   } finally {
     if (mostrarCarregando) {
@@ -257,9 +236,8 @@ const carregarCompras = async () => {
   try {
     const response = await apiService.getCompras()
     
-    // O backend retorna diretamente um array de compras
     if (Array.isArray(response)) {
-      compras.splice(0, compras.length) // Limpar array
+      compras.splice(0, compras.length)
       response.forEach(compra => {
         compras.push({
           id: compra.id,
@@ -285,9 +263,8 @@ const carregarVendas = async () => {
   try {
     const response = await apiService.getVendas()
     
-    // O backend retorna diretamente um array de vendas
     if (Array.isArray(response)) {
-      vendas.splice(0, vendas.length) // Limpar array
+      vendas.splice(0, vendas.length)
       response.forEach(venda => {
         vendas.push({
           id: venda.id,
@@ -313,20 +290,16 @@ const carregarVendas = async () => {
   }
 }
 
-// Carregar dados iniciais
 onMounted(async () => {
   console.log('🚀 Aplicação iniciada, verificando autenticação...')
   
-  // Verificar se usuário está logado
   checkAuthStatus()
   
-  // Se estiver logado, carregar dados
   if (isAuthenticated.value) {
     await loadAppData()
   }
 })
 
-// Funções para gerenciar compras
 const registrarCompra = async (compra) => {
   try {
     carregando.value = true
@@ -334,11 +307,8 @@ const registrarCompra = async (compra) => {
     
     const response = await apiService.createCompra(compra)
     
-    // O backend retorna status 201 e objeto com message e compra
-    if (response.message && response.compra) {
-      // Recarregar produtos para atualizar estoque e custo médio
+  if (response.message && response.compra) {
       await carregarProdutos(false)
-      // Recarregar compras
       await carregarCompras()
       
       mostrarNotificacao(response.message, 'sucesso')
@@ -351,7 +321,6 @@ const registrarCompra = async (compra) => {
   }
 }
 
-// Funções para gerenciar vendas
 const registrarVenda = async (venda) => {
   try {
     carregando.value = true
@@ -360,9 +329,7 @@ const registrarVenda = async (venda) => {
     const response = await apiService.createVenda(venda)
     
     if (response.message && response.venda) {
-      // Recarregar produtos para atualizar estoque
       await carregarProdutos(false)
-      // Recarregar vendas
       await carregarVendas()
       
       mostrarNotificacao(
@@ -374,7 +341,6 @@ const registrarVenda = async (venda) => {
   } catch (error) {
     console.error('Erro ao registrar venda:', error)
     
-    // Tratar especificamente erros de estoque
     if (error.message.includes('Estoque insuficiente')) {
       mostrarNotificacao(`❌ ${error.message}`, 'erro')
     } else {
@@ -386,7 +352,6 @@ const registrarVenda = async (venda) => {
   }
 }
 
-// Função para mostrar notificações
 const mostrarNotificacao = (texto, tipo) => {
   const id = ++notificacaoId
   const notificacao = {
@@ -397,7 +362,6 @@ const mostrarNotificacao = (texto, tipo) => {
   
   notificacoes.push(notificacao)
   
-  // Auto-remover após 5 segundos
   setTimeout(() => {
     removerNotificacao(id)
   }, 5000)
@@ -410,11 +374,10 @@ const removerNotificacao = (id) => {
   }
 }
 
-// Computed para estatísticas
 const estatisticas = computed(() => {
   const totalVendas = vendas.filter(venda => !venda.cancelada).reduce((sum, venda) => sum + venda.total, 0)
   const totalCompras = compras.reduce((sum, compra) => sum + compra.total, 0)
-  const totalLucro = totalVendas - totalCompras // Lucro real = Vendas - Compras
+  const totalLucro = totalVendas - totalCompras
   
   return {
     totalVendas,
@@ -427,7 +390,6 @@ const estatisticas = computed(() => {
 
 <template>
   <div id="app">
-    <!-- Telas de Autenticação -->
     <div v-if="!isAuthenticated">
       <Login 
         v-if="!showRegister"
@@ -441,7 +403,6 @@ const estatisticas = computed(() => {
       />
     </div>
 
-    <!-- Aplicação Principal (após login) -->
     <div v-else>
       <header class="header">
         <div class="header-content">
@@ -457,7 +418,6 @@ const estatisticas = computed(() => {
           </div>
         </div>
         <nav class="nav">
-          <!-- Produtos - Apenas Admin -->
           <button 
             v-if="canAccessScreen('produtos')"
             @click="telaAtiva = 'produtos'" 
@@ -466,7 +426,6 @@ const estatisticas = computed(() => {
           >
             📦 Produtos
           </button>
-          <!-- Compras - Apenas Admin -->
           <button 
             v-if="canAccessScreen('compras')"
             @click="telaAtiva = 'compras'" 
@@ -475,7 +434,6 @@ const estatisticas = computed(() => {
           >
             🛒 Compras
           </button>
-          <!-- Vendas - Admin e Usuário -->
           <button 
             v-if="canAccessScreen('vendas')"
             @click="telaAtiva = 'vendas'" 
@@ -484,7 +442,6 @@ const estatisticas = computed(() => {
           >
             💰 Pedido de Venda
           </button>
-          <!-- Histórico - Admin e Usuário -->
           <button 
             v-if="canAccessScreen('vendas')"
             @click="telaAtiva = 'historico'" 
@@ -496,7 +453,6 @@ const estatisticas = computed(() => {
         </nav>
       </header>
 
-    <!-- Notificações Popup -->
     <div class="notifications-container">
       <transition-group name="notification" tag="div">
         <div 
@@ -528,7 +484,6 @@ const estatisticas = computed(() => {
       </transition-group>
     </div>
 
-    <!-- Indicador de carregamento -->
     <div v-if="carregando" class="loading-overlay">
       <div class="loading-spinner">
         <div class="spinner"></div>
@@ -536,7 +491,6 @@ const estatisticas = computed(() => {
       </div>
     </div>
 
-    <!-- Estatísticas resumidas -->
     <div class="estatisticas">
       <div class="stat-card">
         <h3>Produtos</h3>
@@ -558,7 +512,6 @@ const estatisticas = computed(() => {
       </div>
     </div>
 
-    <!-- Conteúdo das telas -->
     <main class="main-content">
       <div v-if="telaAtiva === 'produtos'" class="tela">
         <h2>Gerenciar Produtos</h2>
@@ -602,7 +555,7 @@ const estatisticas = computed(() => {
         />
       </div>
     </main>
-    </div> <!-- Fechamento da div da aplicação principal -->
+    </div>
   </div>
 </template>
 
