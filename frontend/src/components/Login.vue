@@ -1,3 +1,46 @@
+<script setup>
+import { ref, reactive } from 'vue'
+import apiService from '../services/api.js'
+
+const emit = defineEmits(['login-success', 'show-register'])
+
+const loading = ref(false)
+const error = ref('')
+
+const form = reactive({
+  email: '',
+  password: ''
+})
+
+const fillCredentials = (email, password) => {
+  form.email = email
+  form.password = password
+}
+
+const handleLogin = async () => {
+  try {
+    loading.value = true
+    error.value = ''
+
+    const response = await apiService.login({
+      email: form.email,
+      password: form.password
+    })
+
+    if (response.success) {
+      emit('login-success', response.data.user)
+    } else {
+      error.value = response.message || 'Erro ao fazer login'
+    }
+  } catch (err) {
+    console.error('Erro no login:', err)
+    error.value = err.message || 'Erro ao fazer login. Tente novamente.'
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
 <template>
   <div class="login-container">
     <div class="login-card">
@@ -73,53 +116,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, reactive } from 'vue'
-import apiService from '../services/api.js'
-
-// Emits
-const emit = defineEmits(['login-success', 'show-register'])
-
-// Estado reativo
-const loading = ref(false)
-const error = ref('')
-
-const form = reactive({
-  email: '',
-  password: ''
-})
-
-// Função para preencher credenciais demo
-const fillCredentials = (email, password) => {
-  form.email = email
-  form.password = password
-}
-
-// Função de login
-const handleLogin = async () => {
-  try {
-    loading.value = true
-    error.value = ''
-
-    const response = await apiService.login({
-      email: form.email,
-      password: form.password
-    })
-
-    if (response.success) {
-      emit('login-success', response.data.user)
-    } else {
-      error.value = response.message || 'Erro ao fazer login'
-    }
-  } catch (err) {
-    console.error('Erro no login:', err)
-    error.value = err.message || 'Erro ao fazer login. Tente novamente.'
-  } finally {
-    loading.value = false
-  }
-}
-</script>
 
 <style scoped>
 .login-container {

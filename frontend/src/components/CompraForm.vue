@@ -1,3 +1,72 @@
+<script setup>
+import { reactive, computed } from 'vue'
+
+const props = defineProps({
+  produtos: {
+    type: Array,
+    default: () => []
+  }
+})
+
+const emit = defineEmits(['compra-registrada'])
+
+const form = reactive({
+  fornecedor: '',
+  itens: [{
+    produtoId: '',
+    quantidade: 1,
+    precoUnitario: 0,
+    subtotal: 0
+  }]
+})
+
+const totalCompra = computed(() => {
+  return form.itens.reduce((sum, item) => sum + item.subtotal, 0)
+})
+
+const adicionarItem = () => {
+  form.itens.push({
+    produtoId: '',
+    quantidade: 1,
+    precoUnitario: 0,
+    subtotal: 0
+  })
+}
+
+const removerItem = (index) => {
+  if (form.itens.length > 1) {
+    form.itens.splice(index, 1)
+  }
+}
+
+const atualizarItem = (index) => {
+  const item = form.itens[index]
+  item.subtotal = item.quantidade * item.precoUnitario
+}
+
+const registrarCompra = () => {
+  if (form.fornecedor.trim() && form.itens.every(item => item.produtoId && item.quantidade > 0 && item.precoUnitario > 0)) {
+    emit('compra-registrada', {
+      fornecedor: form.fornecedor.trim(),
+      itens: form.itens.map(item => ({
+        produtoId: parseInt(item.produtoId),
+        quantidade: item.quantidade,
+        precoUnitario: item.precoUnitario
+      }))
+    })
+    
+    // limpar form
+    form.fornecedor = ''
+    form.itens = [{
+      produtoId: '',
+      quantidade: 1,
+      precoUnitario: 0,
+      subtotal: 0
+    }]
+  }
+}
+</script>
+
 <template>
   <div class="compra-form">
     <h3>🛒 Registrar Compra</h3>
@@ -115,75 +184,6 @@
     </form>
   </div>
 </template>
-
-<script setup>
-import { reactive, computed } from 'vue'
-
-const props = defineProps({
-  produtos: {
-    type: Array,
-    default: () => []
-  }
-})
-
-const emit = defineEmits(['compra-registrada'])
-
-const form = reactive({
-  fornecedor: '',
-  itens: [{
-    produtoId: '',
-    quantidade: 1,
-    precoUnitario: 0,
-    subtotal: 0
-  }]
-})
-
-const totalCompra = computed(() => {
-  return form.itens.reduce((sum, item) => sum + item.subtotal, 0)
-})
-
-const adicionarItem = () => {
-  form.itens.push({
-    produtoId: '',
-    quantidade: 1,
-    precoUnitario: 0,
-    subtotal: 0
-  })
-}
-
-const removerItem = (index) => {
-  if (form.itens.length > 1) {
-    form.itens.splice(index, 1)
-  }
-}
-
-const atualizarItem = (index) => {
-  const item = form.itens[index]
-  item.subtotal = item.quantidade * item.precoUnitario
-}
-
-const registrarCompra = () => {
-  if (form.fornecedor.trim() && form.itens.every(item => item.produtoId && item.quantidade > 0 && item.precoUnitario > 0)) {
-    emit('compra-registrada', {
-      fornecedor: form.fornecedor.trim(),
-      itens: form.itens.map(item => ({
-        produtoId: parseInt(item.produtoId),
-        quantidade: item.quantidade,
-        precoUnitario: item.precoUnitario
-      }))
-    })
-    
-    // Limpar formulário
-    form.fornecedor = ''
-    form.itens = [{
-      produtoId: '',
-      quantidade: 1,
-      precoUnitario: 0,
-      subtotal: 0
-    }]
-  }
-}
-</script>
 
 <style scoped>
 .compra-form {

@@ -1,3 +1,77 @@
+<script setup>
+import { ref, reactive, computed } from 'vue'
+import apiService from '../services/api.js'
+
+const emit = defineEmits(['register-success', 'show-login'])
+
+const loading = ref(false)
+const error = ref('')
+const success = ref('')
+
+const form = reactive({
+  name: '',
+  email: '',
+  password: '',
+  password_confirmation: '',
+  role: 'user'
+})
+
+const isFormValid = computed(() => {
+  return form.name && 
+         form.email && 
+         form.password && 
+         form.password_confirmation && 
+         form.password === form.password_confirmation &&
+         form.password.length >= 6
+})
+
+const handleRegister = async () => {
+  try {
+    loading.value = true
+    error.value = ''
+    success.value = ''
+
+    if (form.password !== form.password_confirmation) {
+      error.value = 'As senhas não coincidem'
+      return
+    }
+
+    if (form.password.length < 6) {
+      error.value = 'A senha deve ter pelo menos 6 caracteres'
+      return
+    }
+
+    const response = await apiService.register({
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      password_confirmation: form.password_confirmation,
+      role: form.role
+    })
+
+    if (response.success) {
+      success.value = 'Conta criada com sucesso! Redirecionando...'
+      
+      setTimeout(() => {
+        emit('register-success', response.data.user)
+      }, 1500)
+    } else {
+      error.value = response.message || 'Erro ao criar conta'
+    }
+  } catch (err) {
+    console.error('Erro no registro:', err)
+    
+    if (err.message && err.message.includes('errors')) {
+      error.value = 'Dados inválidos. Verifique os campos e tente novamente.'
+    } else {
+      error.value = err.message || 'Erro ao criar conta. Tente novamente.'
+    }
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
 <template>
   <div class="register-container">
     <div class="register-card">
@@ -96,87 +170,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, reactive, computed } from 'vue'
-import apiService from '../services/api.js'
-
-// Emits
-const emit = defineEmits(['register-success', 'show-login'])
-
-// Estado reativo
-const loading = ref(false)
-const error = ref('')
-const success = ref('')
-
-const form = reactive({
-  name: '',
-  email: '',
-  password: '',
-  password_confirmation: '',
-  role: 'user'
-})
-
-// Validação do formulário
-const isFormValid = computed(() => {
-  return form.name && 
-         form.email && 
-         form.password && 
-         form.password_confirmation && 
-         form.password === form.password_confirmation &&
-         form.password.length >= 6
-})
-
-// Função de registro
-const handleRegister = async () => {
-  try {
-    loading.value = true
-    error.value = ''
-    success.value = ''
-
-    // Validação adicional
-    if (form.password !== form.password_confirmation) {
-      error.value = 'As senhas não coincidem'
-      return
-    }
-
-    if (form.password.length < 6) {
-      error.value = 'A senha deve ter pelo menos 6 caracteres'
-      return
-    }
-
-    const response = await apiService.register({
-      name: form.name,
-      email: form.email,
-      password: form.password,
-      password_confirmation: form.password_confirmation,
-      role: form.role
-    })
-
-    if (response.success) {
-      success.value = 'Conta criada com sucesso! Redirecionando...'
-      
-      // Aguardar um pouco antes de emitir o evento
-      setTimeout(() => {
-        emit('register-success', response.data.user)
-      }, 1500)
-    } else {
-      error.value = response.message || 'Erro ao criar conta'
-    }
-  } catch (err) {
-    console.error('Erro no registro:', err)
-    
-    // Tratar erros de validação do backend
-    if (err.message && err.message.includes('errors')) {
-      error.value = 'Dados inválidos. Verifique os campos e tente novamente.'
-    } else {
-      error.value = err.message || 'Erro ao criar conta. Tente novamente.'
-    }
-  } finally {
-    loading.value = false
-  }
-}
-</script>
 
 <style scoped>
 .register-container {
