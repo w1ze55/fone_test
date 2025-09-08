@@ -1,3 +1,143 @@
+<script setup>
+import { reactive, computed } from 'vue'
+
+const props = defineProps({
+  produtos: {
+    type: Array,
+    default: () => []
+  }
+})
+
+const emit = defineEmits(['venda-registrada'])
+
+const form = reactive({
+  cliente: '',
+  itens: [{
+    produtoId: '',
+    quantidade: 1,
+    subtotal: 0,
+    lucro: 0
+  }]
+})
+
+const totalVenda = computed(() => {
+  return form.itens.reduce((sum, item) => sum + item.subtotal, 0)
+})
+
+const totalLucro = computed(() => {
+  return form.itens.reduce((sum, item) => sum + item.lucro, 0)
+})
+
+const adicionarItem = () => {
+  form.itens.push({
+    produtoId: '',
+    quantidade: 1,
+    subtotal: 0,
+    lucro: 0
+  })
+}
+
+const removerItem = (index) => {
+  if (form.itens.length > 1) {
+    form.itens.splice(index, 1)
+  }
+}
+
+const getPrecoProduto = (produtoId) => {
+  const produto = props.produtos.find(p => p.id === produtoId)
+  return produto ? produto.precoVenda : 0
+}
+
+const getCustoProduto = (produtoId) => {
+  const produto = props.produtos.find(p => p.id === produtoId)
+  return produto ? produto.custoMedio : 0
+}
+
+const getMaxQuantidade = (produtoId) => {
+  const produto = props.produtos.find(p => p.id === produtoId)
+  return produto ? produto.estoque : 0
+}
+
+const atualizarItem = (index) => {
+  const item = form.itens[index]
+  const produto = props.produtos.find(p => p.id === item.produtoId)
+  
+  if (produto) {
+    item.subtotal = item.quantidade * produto.precoVenda
+    item.lucro = item.quantidade * (produto.precoVenda - produto.custoMedio)
+  } else {
+    item.subtotal = 0
+    item.lucro = 0
+  }
+}
+
+const registrarVenda = () => {
+  if (!form.cliente.trim()) {
+    alert('Por favor, informe o nome do cliente.')
+    return false
+  }
+  
+  if (!form.itens.every(item => item.produtoId && item.quantidade > 0)) {
+    alert('Por favor, preencha todos os itens da venda.')
+    return false
+  }
+  
+  // Verificar estoque disponível
+  for (const item of form.itens) {
+    const produto = props.produtos.find(p => p.id === item.produtoId)
+    if (!produto) {
+      alert('Produto não encontrado.')
+      return false
+    }
+    
+    if (produto.estoque < item.quantidade) {
+      alert(`Estoque insuficiente para ${produto.nome}!\n\nDisponível: ${produto.estoque}\nSolicitado: ${item.quantidade}`)
+      return false
+    }
+  }
+  
+  // Verificar se há quantidade total válida considerando múltiplos itens do mesmo produto
+  const produtoQuantidades = {}
+  for (const item of form.itens) {
+    if (!produtoQuantidades[item.produtoId]) {
+      produtoQuantidades[item.produtoId] = 0
+    }
+    produtoQuantidades[item.produtoId] += item.quantidade
+  }
+  
+  for (const [produtoId, quantidadeTotal] of Object.entries(produtoQuantidades)) {
+    const produto = props.produtos.find(p => p.id === parseInt(produtoId))
+    if (produto && produto.estoque < quantidadeTotal) {
+      alert(`Estoque insuficiente para ${produto.nome}!\n\nVocê está tentando vender ${quantidadeTotal} unidades, mas só há ${produto.estoque} disponíveis.`)
+      return false
+    }
+  }
+  
+  emit('venda-registrada', {
+    cliente: form.cliente.trim(),
+    itens: form.itens.map(item => {
+      const produto = props.produtos.find(p => p.id === item.produtoId)
+      return {
+        produtoId: parseInt(item.produtoId),
+        quantidade: item.quantidade,
+        precoUnitario: produto ? produto.precoVenda : 0
+      }
+    })
+  })
+  
+  // Limpar formulário
+  form.cliente = ''
+  form.itens = [{
+    produtoId: '',
+    quantidade: 1,
+    subtotal: 0,
+    lucro: 0
+  }]
+  
+  return true
+}
+</script>
+
 <template>
   <div class="venda-form">
     <h3>💰 Registrar Venda</h3>
@@ -139,146 +279,6 @@
     </form>
   </div>
 </template>
-
-<script setup>
-import { reactive, computed } from 'vue'
-
-const props = defineProps({
-  produtos: {
-    type: Array,
-    default: () => []
-  }
-})
-
-const emit = defineEmits(['venda-registrada'])
-
-const form = reactive({
-  cliente: '',
-  itens: [{
-    produtoId: '',
-    quantidade: 1,
-    subtotal: 0,
-    lucro: 0
-  }]
-})
-
-const totalVenda = computed(() => {
-  return form.itens.reduce((sum, item) => sum + item.subtotal, 0)
-})
-
-const totalLucro = computed(() => {
-  return form.itens.reduce((sum, item) => sum + item.lucro, 0)
-})
-
-const adicionarItem = () => {
-  form.itens.push({
-    produtoId: '',
-    quantidade: 1,
-    subtotal: 0,
-    lucro: 0
-  })
-}
-
-const removerItem = (index) => {
-  if (form.itens.length > 1) {
-    form.itens.splice(index, 1)
-  }
-}
-
-const getPrecoProduto = (produtoId) => {
-  const produto = props.produtos.find(p => p.id === produtoId)
-  return produto ? produto.precoVenda : 0
-}
-
-const getCustoProduto = (produtoId) => {
-  const produto = props.produtos.find(p => p.id === produtoId)
-  return produto ? produto.custoMedio : 0
-}
-
-const getMaxQuantidade = (produtoId) => {
-  const produto = props.produtos.find(p => p.id === produtoId)
-  return produto ? produto.estoque : 0
-}
-
-const atualizarItem = (index) => {
-  const item = form.itens[index]
-  const produto = props.produtos.find(p => p.id === item.produtoId)
-  
-  if (produto) {
-    item.subtotal = item.quantidade * produto.precoVenda
-    item.lucro = item.quantidade * (produto.precoVenda - produto.custoMedio)
-  } else {
-    item.subtotal = 0
-    item.lucro = 0
-  }
-}
-
-const registrarVenda = () => {
-  if (!form.cliente.trim()) {
-    alert('Por favor, informe o nome do cliente.')
-    return false
-  }
-  
-  if (!form.itens.every(item => item.produtoId && item.quantidade > 0)) {
-    alert('Por favor, preencha todos os itens da venda.')
-    return false
-  }
-  
-  // Verificar estoque disponível
-  for (const item of form.itens) {
-    const produto = props.produtos.find(p => p.id === item.produtoId)
-    if (!produto) {
-      alert('Produto não encontrado.')
-      return false
-    }
-    
-    if (produto.estoque < item.quantidade) {
-      alert(`Estoque insuficiente para ${produto.nome}!\n\nDisponível: ${produto.estoque}\nSolicitado: ${item.quantidade}`)
-      return false
-    }
-  }
-  
-  // Verificar se há quantidade total válida considerando múltiplos itens do mesmo produto
-  const produtoQuantidades = {}
-  for (const item of form.itens) {
-    if (!produtoQuantidades[item.produtoId]) {
-      produtoQuantidades[item.produtoId] = 0
-    }
-    produtoQuantidades[item.produtoId] += item.quantidade
-  }
-  
-  for (const [produtoId, quantidadeTotal] of Object.entries(produtoQuantidades)) {
-    const produto = props.produtos.find(p => p.id === parseInt(produtoId))
-    if (produto && produto.estoque < quantidadeTotal) {
-      alert(`Estoque insuficiente para ${produto.nome}!\n\nVocê está tentando vender ${quantidadeTotal} unidades, mas só há ${produto.estoque} disponíveis.`)
-      return false
-    }
-  }
-  
-  emit('venda-registrada', {
-    cliente: form.cliente.trim(),
-    itens: form.itens.map(item => {
-      const produto = props.produtos.find(p => p.id === item.produtoId)
-      return {
-        produtoId: parseInt(item.produtoId),
-        quantidade: item.quantidade,
-        precoUnitario: produto ? produto.precoVenda : 0
-      }
-    })
-  })
-  
-  // Limpar formulário
-  form.cliente = ''
-  form.itens = [{
-    produtoId: '',
-    quantidade: 1,
-    subtotal: 0,
-    lucro: 0
-  }]
-  
-  return true
-}
-</script>
 
 <style scoped>
 .venda-form {

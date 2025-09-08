@@ -5,10 +5,15 @@ import ProdutoLista from './components/ProdutoLista.vue'
 import CompraForm from './components/CompraForm.vue'
 import VendaForm from './components/VendaForm.vue'
 import TransacaoHistorico from './components/TransacaoHistorico.vue'
+import Login from './components/Login.vue'
+import Register from './components/Register.vue'
 import apiService from './services/api.js'
 
 // Estado global da aplicação
-const telaAtiva = ref('produtos')
+const isAuthenticated = ref(false)
+const currentUser = ref(null)
+const showRegister = ref(false)
+const telaAtiva = ref('vendas') // Usuário comum só vê vendas por padrão
 const produtos = reactive([])
 const compras = reactive([])
 const vendas = reactive([])
@@ -16,6 +21,107 @@ const notificacoes = reactive([])
 const produtoEditando = ref(null)
 const carregando = ref(false)
 let notificacaoId = 0
+
+// Funções de autenticação
+const checkAuthStatus = () => {
+  const token = apiService.getToken()
+  const user = apiService.getCurrentUser()
+  
+  if (token && user) {
+    isAuthenticated.value = true
+    currentUser.value = user
+    
+    // Definir tela inicial baseada no role
+    if (user.role === 'admin') {
+      telaAtiva.value = 'produtos'
+    } else {
+      telaAtiva.value = 'vendas'
+    }
+  } else {
+    isAuthenticated.value = false
+    currentUser.value = null
+  }
+}
+
+const handleLogin = (user) => {
+  currentUser.value = user
+  isAuthenticated.value = true
+  
+  // Definir tela inicial baseada no role
+  if (user.role === 'admin') {
+    telaAtiva.value = 'produtos'
+  } else {
+    telaAtiva.value = 'vendas'
+  }
+  
+  mostrarNotificacao(`Bem-vindo(a), ${user.name}!`, 'sucesso')
+  
+  // Carregar dados após login
+  loadAppData()
+}
+
+const handleRegister = (user) => {
+  handleLogin(user)
+  mostrarNotificacao('Conta criada com sucesso!', 'sucesso')
+}
+
+const handleLogout = async () => {
+  try {
+    await apiService.logout()
+    isAuthenticated.value = false
+    currentUser.value = null
+    telaAtiva.value = 'vendas'
+    
+    // Limpar dados locais
+    produtos.splice(0, produtos.length)
+    compras.splice(0, compras.length)
+    vendas.splice(0, vendas.length)
+    
+    mostrarNotificacao('Logout realizado com sucesso!', 'sucesso')
+  } catch (error) {
+    console.error('Erro no logout:', error)
+    mostrarNotificacao('Erro ao fazer logout', 'erro')
+  }
+}
+
+const toggleAuthMode = () => {
+  showRegister.value = !showRegister.value
+}
+
+// Verificar se usuário pode acessar a tela
+const canAccessScreen = (screen) => {
+  if (!currentUser.value) return false
+  
+  if (currentUser.value.role === 'admin') {
+    return true // Admin pode acessar tudo
+  }
+  
+  // Usuário comum só pode acessar vendas
+  return screen === 'vendas'
+}
+
+// Carregar dados da aplicação
+const loadAppData = async () => {
+  if (!isAuthenticated.value) return
+  
+  try {
+    // Sempre carregar produtos (usuários precisam ver para fazer vendas)
+    await carregarProdutos()
+    
+    // Carregar compras apenas para admin
+    if (canAccessScreen('compras')) {
+      await carregarCompras()
+    }
+    
+    // Carregar vendas para todos os usuários autenticados
+    if (canAccessScreen('vendas')) {
+      await carregarVendas()
+    }
+  } catch (error) {
+    console.error('Erro ao carregar dados:', error)
+    mostrarNotificacao('Erro ao carregar dados da aplicação', 'erro')
+  }
+}
 
 // Funções para gerenciar produtos
 const adicionarProduto = async (produto) => {
@@ -122,7 +228,9 @@ const carregarProdutos = async (mostrarCarregando = true) => {
     if (mostrarCarregando) {
       carregando.value = true
     }
+    console.log('🔍 Carregando produtos...')
     const response = await apiService.getProdutos()
+    console.log('📦 Produtos recebidos:', response)
     
     produtos.splice(0, produtos.length) // Limpar array
     response.forEach(produto => {
@@ -134,8 +242,9 @@ const carregarProdutos = async (mostrarCarregando = true) => {
         estoque: produto.estoque_atual
       })
     })
+    console.log('✅ Produtos carregados no estado:', produtos.length)
   } catch (error) {
-    console.error('Erro ao carregar produtos:', error)
+    console.error('❌ Erro ao carregar produtos:', error)
     mostrarNotificacao(`Erro ao carregar produtos: ${error.message}`, 'erro')
   } finally {
     if (mostrarCarregando) {
@@ -206,12 +315,15 @@ const carregarVendas = async () => {
 
 // Carregar dados iniciais
 onMounted(async () => {
-  console.log('🚀 Aplicação iniciada, carregando dados...')
+  console.log('🚀 Aplicação iniciada, verificando autenticação...')
   
-  // Carregar dados
-  await carregarProdutos()
-  await carregarCompras()
-  await carregarVendas()
+  // Verificar se usuário está logado
+  checkAuthStatus()
+  
+  // Se estiver logado, carregar dados
+  if (isAuthenticated.value) {
+    await loadAppData()
+  }
 })
 
 // Funções para gerenciar compras
@@ -315,39 +427,74 @@ const estatisticas = computed(() => {
 
 <template>
   <div id="app">
-    <header class="header">
-      <h1>ERP Ninja - Estoque</h1>
-      <nav class="nav">
-        <button 
-          @click="telaAtiva = 'produtos'" 
-          :class="{ active: telaAtiva === 'produtos' }"
-          class="nav-btn"
-        >
-          📦 Produtos
-        </button>
-        <button 
-          @click="telaAtiva = 'compras'" 
-          :class="{ active: telaAtiva === 'compras' }"
-          class="nav-btn"
-        >
-          🛒 Compras
-        </button>
-        <button 
-          @click="telaAtiva = 'vendas'" 
-          :class="{ active: telaAtiva === 'vendas' }"
-          class="nav-btn"
-        >
-          💰 Pedido de Venda
-        </button>
-        <button 
-          @click="telaAtiva = 'historico'" 
-          :class="{ active: telaAtiva === 'historico' }"
-          class="nav-btn"
-        >
-          📈 Histórico
-        </button>
-      </nav>
-    </header>
+    <!-- Telas de Autenticação -->
+    <div v-if="!isAuthenticated">
+      <Login 
+        v-if="!showRegister"
+        @login-success="handleLogin"
+        @show-register="toggleAuthMode"
+      />
+      <Register 
+        v-else
+        @register-success="handleRegister"
+        @show-login="toggleAuthMode"
+      />
+    </div>
+
+    <!-- Aplicação Principal (após login) -->
+    <div v-else>
+      <header class="header">
+        <div class="header-content">
+          <h1>ERP Ninja - Estoque</h1>
+          <div class="user-info">
+            <span class="user-welcome">
+              Olá, {{ currentUser.name }} 
+              <span class="user-role">({{ currentUser.role === 'admin' ? 'Admin' : 'Usuário' }})</span>
+            </span>
+            <button @click="handleLogout" class="logout-btn">
+              🚪 Sair
+            </button>
+          </div>
+        </div>
+        <nav class="nav">
+          <!-- Produtos - Apenas Admin -->
+          <button 
+            v-if="canAccessScreen('produtos')"
+            @click="telaAtiva = 'produtos'" 
+            :class="{ active: telaAtiva === 'produtos' }"
+            class="nav-btn"
+          >
+            📦 Produtos
+          </button>
+          <!-- Compras - Apenas Admin -->
+          <button 
+            v-if="canAccessScreen('compras')"
+            @click="telaAtiva = 'compras'" 
+            :class="{ active: telaAtiva === 'compras' }"
+            class="nav-btn"
+          >
+            🛒 Compras
+          </button>
+          <!-- Vendas - Admin e Usuário -->
+          <button 
+            v-if="canAccessScreen('vendas')"
+            @click="telaAtiva = 'vendas'" 
+            :class="{ active: telaAtiva === 'vendas' }"
+            class="nav-btn"
+          >
+            💰 Pedido de Venda
+          </button>
+          <!-- Histórico - Admin e Usuário -->
+          <button 
+            v-if="canAccessScreen('vendas')"
+            @click="telaAtiva = 'historico'" 
+            :class="{ active: telaAtiva === 'historico' }"
+            class="nav-btn"
+          >
+            📈 Histórico
+          </button>
+        </nav>
+      </header>
 
     <!-- Notificações Popup -->
     <div class="notifications-container">
@@ -455,6 +602,7 @@ const estatisticas = computed(() => {
         />
       </div>
     </main>
+    </div> <!-- Fechamento da div da aplicação principal -->
   </div>
 </template>
 
@@ -475,10 +623,47 @@ const estatisticas = computed(() => {
   z-index: 10;
 }
 
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .header h1 {
-  margin: 0 0 1rem 0;
+  margin: 0;
   color: #333;
-  text-align: center;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-welcome {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.user-role {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.logout-btn {
+  padding: 0.5rem 1rem;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: #c82333;
 }
 
 .nav {
@@ -641,8 +826,19 @@ const estatisticas = computed(() => {
   transition: transform 0.3s ease;
 }
 
-/* Responsividade para notificações */
+/* Responsividade */
 @media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .user-info {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
   .notifications-container {
     top: 1rem;
     right: 1rem;

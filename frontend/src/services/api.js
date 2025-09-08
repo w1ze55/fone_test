@@ -4,6 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL
+    this.token = localStorage.getItem('auth_token')
   }
 
   // Método genérico para fazer requisições
@@ -11,9 +12,12 @@ class ApiService {
     const url = `${this.baseURL}${endpoint}`
     
     const defaultOptions = {
+      credentials: 'include', // Importante para CORS com cookies
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
       },
     }
 
@@ -126,6 +130,84 @@ class ApiService {
   // Teste de conexão
   async testConnection() {
     return this.request('/')
+  }
+
+  // Métodos de Autenticação
+  async login(credentials) {
+    try {
+      // Primeiro, obter o token CSRF se necessário
+      await fetch(`${this.baseURL.replace('/api', '')}/sanctum/csrf-cookie`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        }
+      }).catch(() => {}); // Ignorar erros, pois pode não ser necessário
+    } catch (error) {
+      console.log('CSRF cookie request failed, continuing...', error);
+    }
+
+    const response = await this.request('/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials)
+    })
+    
+    if (response.success && response.data.token) {
+      this.token = response.data.token
+      localStorage.setItem('auth_token', this.token)
+      localStorage.setItem('user', JSON.stringify(response.data.user))
+    }
+    
+    return response
+  }
+
+  async register(userData) {
+    const response = await this.request('/register', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    })
+    
+    if (response.success && response.data.token) {
+      this.token = response.data.token
+      localStorage.setItem('auth_token', this.token)
+      localStorage.setItem('user', JSON.stringify(response.data.user))
+    }
+    
+    return response
+  }
+
+  async logout() {
+    if (this.token) {
+      await this.request('/logout', {
+        method: 'POST'
+      })
+    }
+    
+    this.token = null
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('user')
+  }
+
+  async getMe() {
+    return this.request('/me')
+  }
+
+  // Métodos utilitários
+  setToken(token) {
+    this.token = token
+    localStorage.setItem('auth_token', token)
+  }
+
+  getToken() {
+    return this.token
+  }
+
+  isAuthenticated() {
+    return !!this.token
+  }
+
+  getCurrentUser() {
+    const user = localStorage.getItem('user')
+    return user ? JSON.parse(user) : null
   }
 }
 
