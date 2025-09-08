@@ -1,4 +1,3 @@
-// Serviço de API para comunicação com o backend Laravel
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 class ApiService {
@@ -7,12 +6,11 @@ class ApiService {
     this.token = localStorage.getItem('auth_token')
   }
 
-  // Método genérico para fazer requisições
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`
     
     const defaultOptions = {
-      credentials: 'include', // Importante para CORS com cookies
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -49,7 +47,6 @@ class ApiService {
     }
   }
 
-  // Métodos para Produtos
   async getProdutos() {
     return this.request('/produtos')
   }
@@ -80,7 +77,6 @@ class ApiService {
     })
   }
 
-  // Métodos para Compras
   async getCompras() {
     return this.request('/compras')
   }
@@ -99,7 +95,6 @@ class ApiService {
     })
   }
 
-  // Métodos para Vendas
   async getVendas() {
     return this.request('/vendas')
   }
@@ -118,7 +113,6 @@ class ApiService {
     })
   }
 
-  // Métodos para Estatísticas
   async getEstatisticasCompras() {
     return this.request('/compras/estatisticas')
   }
@@ -127,21 +121,18 @@ class ApiService {
     return this.request('/vendas/estatisticas')
   }
 
-  // Teste de conexão
   async testConnection() {
     return this.request('/')
   }
 
-  // Métodos de Autenticação
   async login(credentials) {
     try {
-      // Primeiro, obter o token CSRF se necessário
       await fetch(`${this.baseURL.replace('/api', '')}/sanctum/csrf-cookie`, {
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
         }
-      }).catch(() => {}); // Ignorar erros, pois pode não ser necessário
+      }).catch(() => {});
     } catch (error) {
       console.log('CSRF cookie request failed, continuing...', error);
     }
@@ -191,7 +182,6 @@ class ApiService {
     return this.request('/me')
   }
 
-  // Métodos utilitários
   setToken(token) {
     this.token = token
     localStorage.setItem('auth_token', token)
@@ -211,7 +201,6 @@ class ApiService {
   }
 }
 
-// Instância única do serviço
 const apiService = new ApiService()
 
 export default apiService
